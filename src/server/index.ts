@@ -2,7 +2,7 @@ import { Hono } from 'hono'
 import 'dotenv/config'
 import { cors } from 'hono/cors'
 import { serve } from '@hono/node-server'
-import { DatabaseService } from './database'
+import { DatabaseFactory } from './DatabaseFactory'
 import { SiteApiService } from './siteapi'
 import { authMiddleware, generateToken } from './auth'
 import fs from 'fs'
@@ -31,7 +31,7 @@ type Env = {
 }
 
 const app = new Hono<Env>()
-const db = new DatabaseService()
+const db = DatabaseFactory.createDatabase()
 const siteApiService = new SiteApiService()
 const logger = createLogger('server')
 
@@ -56,7 +56,7 @@ app.post('/api/login', async (c) => {
       )
     }
 
-    const user = db.getUser(adminUsername)!
+    const user = (await db.getUser(adminUsername))!
     const token = generateToken(user.id, user.username)
 
     logger.info('User logged in successfully', { username: user.username })
@@ -177,9 +177,9 @@ app.post('/api/change-password', async (c) => {
   }
 })
 
-app.get('/api/export', (c) => {
+app.get('/api/export', async (c) => {
   try {
-    const sites = db.getAllSites()
+    const sites = await db.getAllSites()
 
     // Export data structure
     const exportData = {
@@ -242,9 +242,9 @@ app.post('/api/import', async (c) => {
     })
 
     // Clear existing sites (this will overwrite all data)
-    const existingSites = db.getAllSites()
+    const existingSites = await db.getAllSites()
     for (const site of existingSites) {
-      db.deleteSite(site.id)
+      await db.deleteSite(site.id)
     }
 
     logger.info('Cleared existing sites', { count: existingSites.length })
@@ -264,7 +264,7 @@ app.post('/api/import', async (c) => {
           continue
         }
 
-        db.addSite({
+        await db.addSite({
           name: siteData.name,
           accessToken: siteData.accessToken,
           url: siteData.url,
@@ -315,9 +315,9 @@ app.post('/api/import', async (c) => {
   }
 })
 
-app.get('/api/sites', (c) => {
+app.get('/api/sites', async (c) => {
   try {
-    const sites = db.getAllSites()
+    const sites = await db.getAllSites()
     logger.debug('Retrieved all sites', { count: sites.length })
     return c.json<ApiResponse<Site[]>>({ success: true, data: sites })
   } catch (error: unknown) {
@@ -395,7 +395,7 @@ app.post('/api/sites', async (c) => {
 
     logger.info('Adding site to database', { siteName: name })
     // Add site with user info
-    const site = db.addSite({
+    const site = await db.addSite({
       name,
       accessToken,
       url,
@@ -431,7 +431,7 @@ app.put('/api/sites/:id', async (c) => {
 
     logger.info('Updating site', { siteId: id, siteName: name })
 
-    const existingSite = db.getSite(id)
+    const existingSite = await db.getSite(id)
     if (!existingSite) {
       logger.warn('Site update failed - site not found', { siteId: id })
       return c.json<ApiResponse<unknown>>(
@@ -462,9 +462,9 @@ app.put('/api/sites/:id', async (c) => {
       }
     }
 
-    db.updateSite(id, { name, accessToken, url, description, userId, type })
+    await db.updateSite(id, { name, accessToken, url, description, userId, type })
     logger.info('Site updated successfully', { siteId: id })
-    const updatedSite = db.getSite(id)
+    const updatedSite = await db.getSite(id)
     return c.json<ApiResponse<Site | null>>({
       success: true,
       data: updatedSite,
@@ -484,10 +484,10 @@ app.put('/api/sites/:id', async (c) => {
   }
 })
 
-app.delete('/api/sites/:id', (c) => {
+app.delete('/api/sites/:id', async (c) => {
   try {
     const id = c.req.param('id')
-    db.deleteSite(id)
+    await db.deleteSite(id)
     return c.json<ApiResponse<unknown>>({ success: true })
   } catch (error) {
     logger.error('Failed to delete site', {
@@ -506,7 +506,7 @@ app.delete('/api/sites/:id', (c) => {
 app.get('/api/sites/:id/user', async (c) => {
   try {
     const id = c.req.param('id')
-    const site = db.getSite(id)
+    const site = await db.getSite(id)
 
     if (!site) {
       return c.json<ApiResponse<unknown>>(
@@ -518,7 +518,7 @@ app.get('/api/sites/:id/user', async (c) => {
     const userInfo = await siteApiService.getUserInfo(site)
 
     if (userInfo) {
-      db.updateSite(id, {
+      await db.updateSite(id, {
         username: userInfo.username,
         usedQuota: userInfo.usedQuota,
         quota: userInfo.quota,
@@ -546,7 +546,7 @@ app.get('/api/sites/:id/user', async (c) => {
 app.get('/api/sites/:id/tokens', async (c) => {
   try {
     const id = c.req.param('id')
-    const site = db.getSite(id)
+    const site = await db.getSite(id)
 
     if (!site) {
       return c.json<ApiResponse<unknown>>(
@@ -578,7 +578,7 @@ app.get('/api/sites/:id/tokens', async (c) => {
 app.post('/api/sites/:id/checkin', async (c) => {
   try {
     const id = c.req.param('id')
-    const site = db.getSite(id)
+    const site = await db.getSite(id)
 
     if (!site) {
       return c.json<ApiResponse<unknown>>(
