@@ -13,11 +13,11 @@ export class MySQLDatabaseService implements IDatabaseService {
   constructor() {
     // Use mysql2/promise for native async support
     const mysqlConfig = {
-      host: '127.0.0.1',
-      port: 3306,
-      user: 'root',
-      password: 'tHYvQzMG',
-      database: 'one_api_hub',
+      host: process.env.MYSQL_HOST || '127.0.0.1',
+      port: parseInt(process.env.MYSQL_PORT || '3306'),
+      user: process.env.MYSQL_USER || 'root',
+      password: process.env.MYSQL_PASSWORD || '',
+      database: process.env.MYSQL_DATABASE || 'one_api_hub',
       waitForConnections: true,
       connectionLimit: 10,
       queueLimit: 0
@@ -96,7 +96,7 @@ export class MySQLDatabaseService implements IDatabaseService {
 
       if (rows.length === 0) {
         logger.info('Creating default admin user')
-        const initialPassword = 'admin123456'
+        const initialPassword = process.env.ADMIN_INITIAL_PASSWORD || 'admin123456'
         const passwordHash = await bcrypt.hash(initialPassword, 10)
         
         await this.pool.execute(
