@@ -66,7 +66,7 @@ export const PasswordSettings: React.FC = () => {
         } as ChangePasswordRequest),
       })
 
-      const result: ApiResponse = await response.json()
+      const result: ApiResponse<any> = await response.json()
       if (result.success) {
         toast({
           title: t('common.success'),

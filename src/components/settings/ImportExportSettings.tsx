@@ -32,7 +32,7 @@ export const ImportExportSettings: React.FC = () => {
       })
 
       if (!response.ok) {
-        const result: ApiResponse = await response.json()
+        const result: ApiResponse<any> = await response.json()
         throw new Error(result.error || 'Export failed')
       }
 
@@ -98,7 +98,7 @@ export const ImportExportSettings: React.FC = () => {
         body: JSON.stringify(data),
       })
 
-      const result: ApiResponse = await response.json()
+      const result: ApiResponse<any> = await response.json()
       if (result.success) {
         toast({
           title: t('common.success'),
